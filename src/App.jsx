@@ -1,121 +1,84 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
-import './App.css'
+import React, { useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import useStore from './store/useStore';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import MachineDetail from './pages/MachineDetail';
 
+/**
+ * App Root Component
+ * Coordinates routing, enforces global layout styles, and pulls 
+ * live backend data immediately on launch.
+ */
 function App() {
-  const [count, setCount] = useState(0)
+  // Pull states and fetch actions from your Zustand global configuration
+  const { fetchMachines, currentUser, initSocketListeners, restoreSession } = useStore();
+
+  /**
+   * Application Bootstrapper
+   * Runs exactly once when the web app mounts. It forces a network fetch
+   * to populate live machines from the DB, ensuring users don't see or interact
+   * with old/stale mock data on slower network connections.
+   */
+ useEffect(() => {
+  const bootstrapSession = async () => {
+    // 1. Fire socket listener attachments once
+    initSocketListeners();
+    // 2. Hydrate user session from local token cache safely
+    await restoreSession();
+    // 3. Hydrate live active equipment configurations from DB
+    await fetchMachines();
+  };
+
+  bootstrapSession();
+}, [initSocketListeners, restoreSession, fetchMachines]);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <BrowserRouter>
+      {/* Global Mobile-First Constraint Container:
+        Centers the workspace horizontally on desktop viewports and wraps it
+        in a modern shadow card layer, keeping styling minimal and cohesive.
+      */}
+      <div className="min-h-screen w-full bg-gray-100 flex justify-center items-start">
+        <div className="w-full max-w-[430px] min-h-screen bg-white shadow-2xl flex flex-col relative overflow-x-hidden">
+          
+          <Routes>
+            {/* 1. The Root Gateway Route Guard
+              If a user session is active, navigating to "/" automatically bounces them to 
+              the dashboard. If unauthenticated, it presents the Login/Register form safely.
+            */}
+            <Route 
+              path="/" 
+              element={currentUser ? <Navigate to="/dashboard" replace /> : <Login />} 
+            />
+            
+            {/* 2. Protected Dashboard Route
+              Prevents manual URL-hacking entry. If a logged-out guest types /dashboard, 
+              they are gracefully bounced backward to the log-in page.
+            */}
+            <Route 
+              path="/dashboard" 
+              element={currentUser ? <Dashboard /> : <Navigate to="/" replace />} 
+            />
+            
+            {/* 3. Protected Machine Detail Route
+              Ensures the deep-link route is protected under an active session identity check.
+            */}
+            <Route 
+              path="/machine/:id" 
+              element={currentUser ? <MachineDetail /> : <Navigate to="/" replace />} 
+            />
+            
+            {/* 4. Global Catch-All Wildcard Route
+              Handles mistyped URLs cleanly by redirecting back to the root entry point.
+            */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      </div>
+    </BrowserRouter>
+  );
 }
 
-export default App
+export default App;
